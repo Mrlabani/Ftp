@@ -1,1 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enhanced FTP Server Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #007bff;
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+    }
+    .container {
+      padding: 20px;
+    }
+    form, .actions {
+      margin-bottom: 20px;
+    }
+    label, input, button, select {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table th, table td {
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+    table th {
+      background-color: #007bff;
+      color: white;
+    }
+  </style>
+</head>
+<body>
 
+<header>
+  <h1>Enhanced FTP Server Management Panel</h1>
+</header>
+
+<div class="container">
+  <!-- FTP Connection -->
+  <form id="connect-form">
+    <h2>Connect to FTP Server</h2>
+    <label for="ftp-host">Host:</label>
+    <input type="text" id="ftp-host" placeholder="FTP Server Host" required>
+    <label for="ftp-port">Port:</label>
+    <input type="number" id="ftp-port" value="21" required>
+    <label for="ftp-username">Username:</label>
+    <input type="text" id="ftp-username" required>
+    <label for="ftp-password">Password:</label>
+    <input type="password" id="ftp-password" required>
+    <button type="submit">Connect</button>
+  </form>
+
+  <!-- FTP Operations -->
+  <div id="ftp-panel" style="display:none;">
+    <h2>Manage Files</h2>
+    <div class="actions">
+      <form id="create-folder-form">
+        <label for="folder-name">Create Folder:</label>
+        <input type="text" id="folder-name" placeholder="Folder Name" required>
+        <button type="submit">Create Folder</button>
+      </form>
+      <form id="rename-file-form">
+        <label for="old-name">Old Name:</label>
+        <input type="text" id="old-name" placeholder="Current File/Folder Name" required>
+        <label for="new-name">New Name:</label>
+        <input type="text" id="new-name" placeholder="New File/Folder Name" required>
+        <button type="submit">Rename</button>
+      </form>
+    </div>
+
+    <!-- File List -->
+    <table>
+      <thead>
+        <tr>
+          <th>File Name</th>
+          <th>Type</th>
+          <th>Size</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="file-list"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const connectForm = document.getElementById('connect-form');
+  const ftpPanel = document.getElementById('ftp-panel');
+  const fileList = document.getElementById('file-list');
+
+  // Backend API base URL
+  const API_BASE = 'http://localhost:5000/api';
+
+  // Connect to FTP Server
+  connectForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const host = document.getElementById('ftp-host').value;
+    const port = document.getElementById('ftp-port').value;
+    const username = document.getElementById('ftp-username').value;
+    const password = document.getElementById('ftp-password').value;
+
+    const response = await fetch(`${API_BASE}/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host, port, username, password }),
+    });
+
+    if (response.ok) {
+      ftpPanel.style.display = 'block';
+      loadFiles();
+    } else {
+      alert('Failed to connect to FTP Server.');
+    }
+  });
+
+  // Load Files
+  async function loadFiles() {
+    const response = await fetch(`${API_BASE}/list`);
+    const files = await response.json();
+    fileList.innerHTML = files
+      .map(file => `
+        <tr>
+          <td>${file.name}</td>
+          <td>${file.type}</td>
+          <td>${file.size}</td>
+          <td>
+            <button onclick="downloadFile('${file.name}')">Download</button>
+            <button onclick="deleteFile('${file.name}')">Delete</button>
+          </td>
+        </tr>
+      `)
+      .join('');
+  }
+
+  // Create Folder
+  document.getElementById('create-folder-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const folderName = document.getElementById('folder-name').value;
+    await fetch(`${API_BASE}/create-folder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderName }),
+    });
+    loadFiles();
+  });
+
+  // Rename File
+  document.getElementById('rename-file-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const oldName = document.getElementById('old-name').value;
+    const newName = document.getElementById('new-name').value;
+    await fetch(`${API_BASE}/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldName, newName }),
+    });
+    loadFiles();
+  });
+
+  async function downloadFile(fileName) {
+    window.location.href = `${API_BASE}/download?file=${fileName}`;
+  }
+
+  async function deleteFile(fileName) {
+    await fetch(`${API_BASE}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileName }),
+    });
+    loadFiles();
+  }
+</script>
+
+</body>
+</html>
